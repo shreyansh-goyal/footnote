@@ -1,0 +1,25 @@
+[project]
+name = "footnote"
+version = "0.1.0"
+description = "Scrape your articles ingest them in documents and create rag chatbot for it"
+readme = "README.md"
+authors = [
+    { name = "Shreyansh Goyal", email = "shreyanshgoyal90@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "grpcio==1.76.0",
+    "langchain-nvidia-ai-endpoints>=1.5.0",
+    "langchain-text-splitters>=1.1.3",
+    "pydantic>=2.14.3",
+    "python-dotenv>=1.2.4",
+    "qdrant-client>=1.20.0",
+    "xxhash==3.6.0",
+]
+
+[project.scripts]
+footnote = "footnote:main"
+
+[build-system]
+requires = ["uv_build>=0.9.30,<0.10.0"]
+build-backend = "uv_build"
