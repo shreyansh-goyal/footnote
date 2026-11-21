@@ -17,6 +17,10 @@ NOTES_DIR = Path(_notes_dir)
 # NVIDIA retires models often; a 410 Gone error means pick another one.
 CHAT_MODEL = os.environ.get("FOOTNOTE_CHAT_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
 
+# Model that writes synthetic test questions. Keep it different from CHAT_MODEL so the
+# system isn't graded by its own style.
+GEN_MODEL = os.environ.get("FOOTNOTE_GEN_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
+
 # QDRANT_URL set -> talk to a Qdrant server (the Docker setup). Unset -> embedded local mode.
 QDRANT_URL = os.environ.get("QDRANT_URL")
 DB_PATH = os.environ.get("FOOTNOTE_DB_PATH", "data/qdrant")
