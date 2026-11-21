@@ -1,13 +1,13 @@
 from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
-from qdrant_client import QdrantClient
 
 from footnote.answer import CHAT_MODEL, answer
-from footnote.indexer import COLLECTION, DB_PATH, MODEL
+from footnote.config import get_client
+from footnote.indexer import COLLECTION, MODEL
 from footnote.retriever import retrieve
 
 
 def main() -> None:
-    client = QdrantClient(path=DB_PATH)
+    client = get_client()
     if not client.collection_exists(COLLECTION):
         raise SystemExit("Nothing indexed yet. Run: python -m footnote.indexer")
     embedder = NVIDIAEmbeddings(model=MODEL)

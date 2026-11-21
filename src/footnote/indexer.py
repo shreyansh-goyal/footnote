@@ -15,6 +15,7 @@ from qdrant_client.models import (
 )
 
 from footnote.chunker import CHUNK_OVERLAP, MAX_CHARS, Chunk, chunk_document
+from footnote.config import get_client
 from footnote.loader import FOLDERS, NOTES_DIR, load_note
 from footnote.schema import Document
 
@@ -23,7 +24,6 @@ load_dotenv()
 MODEL = "nvidia/nemotron-3-embed-1b"
 VECTOR_SIZE = 2048
 COLLECTION = "notes"
-DB_PATH = "data/qdrant"
 
 
 def load_notes() -> dict[str, Document]:
@@ -110,7 +110,7 @@ def index_all(client: QdrantClient, embedder: NVIDIAEmbeddings) -> None:
 
 def main() -> None:
     """Ingest only: embed new or changed notes. Asking questions lives in cli.py."""
-    client = QdrantClient(path=DB_PATH)
+    client = get_client()
     embedder = NVIDIAEmbeddings(model=MODEL)
     index_all(client, embedder)
 

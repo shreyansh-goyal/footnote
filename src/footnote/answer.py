@@ -1,6 +1,7 @@
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-CHAT_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"  # NVIDIA retires models often; a 410 error means swap this
+from footnote.config import CHAT_MODEL  # noqa: F401  (re-exported for ask.py)
+
 MIN_SCORE = 0.3  # below this, a hit is treated as not relevant; tune it once you see real scores
 
 NO_ANSWER = "I don't know: your notes don't cover that."

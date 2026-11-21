@@ -1,8 +1,8 @@
 import re
 from pathlib import Path
+from footnote.config import NOTES_DIR
 from footnote.schema import Document
 
-NOTES_DIR = Path(r"C:\Users\carez\OneDrive\Documents\Obsidian Vault\Notes")
 FOLDERS = ["RAG Development", "RAG Evaluation", "RAG on Kubernetes"]
 
 

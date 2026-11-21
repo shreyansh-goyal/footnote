@@ -65,6 +65,12 @@ Running it twice with no edits prints `0 notes embedded, N unchanged`.
 
 The Sources list is built from my own hit list, not from what the model writes. The model can only point to a source by number, so it can't invent a source name.
 
+### indexer.py (entry point), ask.py, retriever.py, eval_retrieval.py
+- `python -m footnote.indexer` is the write path: it ingests new or changed notes. Run it when notes change.
+- `python -m footnote.ask` is the read path: it prompts for a question, retrieves, and prints the cited answer. It never ingests, and exits with a clear message if nothing is indexed.
+- `retriever.py` holds `retrieve()`, which returns the top-k chunks as plain dicts.
+- `eval_retrieval.py` checks retrieval against a set of questions with known answers (see Evaluation).
+
 ## Design decisions worth remembering
 
 | Decision | Why |
@@ -84,13 +90,66 @@ The Sources list is built from my own hit list, not from what the model writes. 
 - **`indexed_hashes` scans every chunk.** It reads payloads only, so it is cheap at this size. A separate manifest (one record per note) would scale better.
 - **`MIN_SCORE` and `k` are guesses.** They need a small test set of questions, each with the note that should answer it, to be tuned properly.
 - **No tests yet.** `plan_changes` and `format_sources` are pure functions, so they are easy to cover first.
-- **Entry points are mixed.** `indexer.main()` currently indexes and then answers. These should be two commands (see below).
+- **File-level matching over-credits retrieval.** Checking only that the right note was retrieved counts a hit even when a different chunk of that note came back. Evaluation must use chunk-level labels (see Evaluation).
+- **Chat models get retired.** NVIDIA returned `410 Gone` for `meta/llama-3.1-70b-instruct`, and the model list still showed it as available. `CHAT_MODEL` should come from an environment variable.
+- **The chat model is a reasoning model.** Thinking tokens count against the output limit, so a low `max_completion_tokens` can produce an empty answer. Check `finish_reason` when a reply looks wrong.
 
-## Next steps
+## Evaluation
 
-1. Split the entry points: `index` (write path, run when notes change) and `ask` (read path, never calls `index_all`, fails clearly if nothing is indexed).
-2. Build a small retrieval check: questions plus the expected note, and report whether it appears in the top k.
-3. Run it for real as services.
+### Golden dataset
+A fixed set of test cases that works as an answer key. Each case has:
+- a **question**,
+- the **expected passage**: the source note plus a short key phrase that must appear in the retrieved chunk,
+- optionally a **reference answer**, used later to judge the LLM's final answer.
+
+A human writes or approves it, because it defines what "correct" means. An LLM can draft extra questions from chunks, but they get reviewed.
+
+The dataset stays fixed when `k`, `MIN_SCORE`, the prompt, the chunk size or either model changes. That is what makes before and after scores comparable. It only changes when the notes change or when coverage is extended. Change one setting at a time and re-run the same set.
+
+### Chunk-level labels, not file-level
+Matching only the source file counts a hit when a different chunk of the right note is retrieved, so the score says 10/10 while real answers fail. Labelling with a key phrase checks the thing that matters: whether the retrieved text contains what is needed to answer. Key phrases also survive re-chunking, whereas chunk IDs (derived from source and text) change whenever `MAX_CHARS` or `CHUNK_OVERLAP` change.
+
+### Don't tune on the whole dataset
+A small warning: don't tune on the whole dataset and then report that number as your quality. If you adjust `MIN_SCORE` until all 10 pass, you've fitted the settings to those 10 questions. With a larger set, teams hold some questions back and check only at the end. For a personal project, 15 or 20 questions with a few you never tuned against is enough.
+
+### Layers
+1. **Retrieval:** hit rate at k, then MRR, against the golden set.
+2. **Generation:** faithfulness (each claim supported by the cited sources), answer relevance, citation correctness, and correct refusals.
+
+## Implementation plan
+
+Order matters: cheap foundations first, measure before tuning, harden while the index is cheap to rebuild, then containerize.
+
+**A. Foundation**
+- `git init`, a `.gitignore` (`.venv`, `data/qdrant`, `.env`), and a pinned `pyproject.toml` or `requirements.txt` (keep the `xxhash` and `grpcio` pins).
+- Move the vault path, `CHAT_MODEL`, and Qdrant settings into environment variables, with one `get_client()` function.
+
+**B. Evaluation**
+- Write 15 to 20 golden questions (source, key phrase, reference answer), and keep a few aside that are never tuned against.
+- Generate a larger synthetic set with a different LLM than the one that answers. Feed it a few handwritten examples as few-shot, and ask for both single-note and multi-note questions.
+  - Few-shot examples must not come from the held-out questions, or the held-out set is contaminated.
+  - Single-note: give it one chunk. The expected passage is that chunk's key phrase.
+  - Multi-note: give it chunks from related notes. It has several expected passages, so score the fraction found in the top k, not a single hit.
+  - Verify every generated key phrase appears verbatim in the chunk text, and reject cases that fail. Sample-review the rest by hand.
+  - Tell the generator to paraphrase and not copy the chunk's wording, so the questions aren't unrealistically easy.
+- Update `eval_retrieval.py` to chunk-level matching, and report hit rate and MRR.
+- Tune `k`, `MIN_SCORE`, chunk size and overlap one at a time. Re-run the same set after each change.
+- Add generation checks on the same questions.
+
+**C. Hardening**
+- Make `source` the vault-relative path so same-named notes can't collide. This changes every ID, so re-index afterwards.
+- Re-index order: upsert new chunks first, then delete only the stale chunk IDs.
+- Tests for `plan_changes`, `format_sources`, `split_by_heading`, and the eval scoring.
+- Reject out-of-range citations, and log retrieval scores and `finish_reason`.
+
+**D. Containerize**
+- Qdrant as a Docker container; the client connects by URL.
+- A Dockerfile for the app, and a compose file with Qdrant plus the app.
+- Ingestion as a job (scheduled or on demand); asking as a read-only service behind a small API.
+
+**E. Operate**
+- Run the golden set in CI so a change that drops the score is caught before merge.
+- Scheduled ingestion, secrets from the environment, and log real questions, adding the bad ones to the golden set.
 
 ## Production plan
 
