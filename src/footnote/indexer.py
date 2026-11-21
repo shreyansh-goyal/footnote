@@ -108,34 +108,11 @@ def index_all(client: QdrantClient, embedder: NVIDIAEmbeddings) -> None:
     )
 
 
-def retrieve(client: QdrantClient, embedder: NVIDIAEmbeddings, question: str, k: int = 4) -> list[dict]:
-    """Return the top-k chunks for a question as plain dicts, ready to go into a prompt."""
-    hits = client.query_points(COLLECTION, query=embedder.embed_query(question), limit=k).points
-    return [
-        {
-            "score": hit.score,
-            "title": hit.payload.get("title"),
-            "heading": hit.payload.get("heading"),
-            "source": hit.payload.get("source"),
-            "text": hit.payload.get("text"),
-        }
-        for hit in hits
-    ]
-
-
-def search(client: QdrantClient, embedder: NVIDIAEmbeddings, question: str, k: int = 4) -> None:
-    hits = client.query_points(COLLECTION, query=embedder.embed_query(question), limit=k).points
-    print(f"\nQ: {question}")
-    for hit in hits:
-        print(f"  {hit.score:.3f}  {hit.payload.get('title')} > {hit.payload.get('heading')}")
-
-
 def main() -> None:
+    """Ingest only: embed new or changed notes. Asking questions lives in cli.py."""
     client = QdrantClient(path=DB_PATH)
     embedder = NVIDIAEmbeddings(model=MODEL)
     index_all(client, embedder)
-    search(client, embedder, "Why do chunks overlap?")
-    search(client, embedder, "How does the HPA decide when to add pods?")
 
 
 if __name__ == "__main__":
