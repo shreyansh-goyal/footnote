@@ -22,7 +22,47 @@ Two separate jobs share the vector store:
 - **Indexing** (write path): runs when notes change.
 - **Asking** (read path): runs whenever I have a question. It should never re-index.
 
+## Project layout
+
+```
+src/footnote/
+├── __init__.py       makes `footnote` importable (also holds the placeholder `main`)
+├── core/             config.py (env settings, Qdrant client), schema.py (Document)
+├── utils/            text.py (norm: lowercase + collapse whitespace)
+├── ingestion/        loader.py, chunker.py, indexer.py      -> the write path
+├── retrieval/        retriever.py                           -> search
+├── qa/               answer.py, ask.py                      -> generation + the question loop
+└── evaluation/       generate_dataset.py, eval_retrieval.py -> measuring quality
+scripts/              one-off experiments (embed_probe.py), not part of the package
+```
+
+Folders follow the data flow. `core` and `utils` are imported by everything and import nothing from the others, so dependencies point one way.
+Known wrinkle: `retrieval` and `evaluation` import `COLLECTION`, `MODEL` and `chunk_id` from `ingestion/indexer.py`. Moving those into `core/` would keep read-only code off the write path.
+
+Run modules with `python -m`, from the project root:
+
+| Task | Command |
+| --- | --- |
+| Ingest | `python -m footnote.ingestion.indexer` |
+| Ask | `python -m footnote.qa.ask` |
+| Generate synthetic eval set | `python -m footnote.evaluation.generate_dataset` |
+| Evaluate retrieval | `python -m footnote.evaluation.eval_retrieval` |
+
+### `__init__.py`
+A file with this name marks a folder as a Python package, so `from footnote.ingestion.indexer import ...` works. It also runs once, the first time anything in that package is imported.
+- Mine are empty on purpose: they only say "this folder is a package".
+- Python 3.3+ can import folders without one ("namespace packages"), but the explicit file is the norm because packaging tools, type checkers and test runners behave more predictably with it.
+- They can hold code, usually re-exports for shorter imports (`from .indexer import index_all` in `ingestion/__init__.py` would allow `from footnote.ingestion import index_all`). I left that out so import paths stay explicit.
+
+### `__pycache__/`
+When Python imports a `.py` file it compiles it to bytecode and saves it as `__pycache__/name.cpython-312.pyc`; the next import loads that instead of re-parsing the source.
+- It is a cache, not code. It is safe to delete (Python regenerates it) and must never be committed, so `__pycache__/` belongs in `.gitignore`.
+- There are many because every folder with imported modules gets its own. More subfolders means more of them.
+- To stop it being written, set `PYTHONDONTWRITEBYTECODE=1`. The cost is a slightly slower start.
+
 ## Modules
+
+(Files below now live in the folders shown in Project layout.)
 
 ### schema.py
 `Document` is one note: `title`, `text`, `folder`, `source` (the file name), `source_type`.
@@ -66,8 +106,8 @@ Running it twice with no edits prints `0 notes embedded, N unchanged`.
 The Sources list is built from my own hit list, not from what the model writes. The model can only point to a source by number, so it can't invent a source name.
 
 ### indexer.py (entry point), ask.py, retriever.py, eval_retrieval.py
-- `python -m footnote.indexer` is the write path: it ingests new or changed notes. Run it when notes change.
-- `python -m footnote.ask` is the read path: it prompts for a question, retrieves, and prints the cited answer. It never ingests, and exits with a clear message if nothing is indexed.
+- `python -m footnote.ingestion.indexer` is the write path: it ingests new or changed notes. Run it when notes change.
+- `python -m footnote.qa.ask` is the read path: it prompts for a question, retrieves, and prints the cited answer. It never ingests, and exits with a clear message if nothing is indexed.
 - `retriever.py` holds `retrieve()`, which returns the top-k chunks as plain dicts.
 - `eval_retrieval.py` checks retrieval against a set of questions with known answers (see Evaluation).
 

@@ -1,6 +1,6 @@
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-from footnote.config import CHAT_MODEL  # noqa: F401  (re-exported for ask.py)
+from footnote.core.config import CHAT_MODEL  # noqa: F401  (re-exported for ask.py)
 
 MIN_SCORE = 0.3  # below this, a hit is treated as not relevant; tune it once you see real scores
 

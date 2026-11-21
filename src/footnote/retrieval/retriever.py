@@ -1,7 +1,7 @@
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from qdrant_client import QdrantClient
 
-from footnote.indexer import COLLECTION
+from footnote.ingestion.indexer import COLLECTION
 
 
 def retrieve(client: QdrantClient, embedder: NVIDIAEmbeddings, question: str, k: int = 4) -> list[dict]:

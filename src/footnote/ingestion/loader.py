@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
-from footnote.config import NOTES_DIR
-from footnote.schema import Document
+from footnote.core.config import NOTES_DIR
+from footnote.core.schema import Document
 
 FOLDERS = ["RAG Development", "RAG Evaluation", "RAG on Kubernetes"]
 

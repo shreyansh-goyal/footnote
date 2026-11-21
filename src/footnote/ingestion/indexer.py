@@ -14,10 +14,10 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from footnote.chunker import CHUNK_OVERLAP, MAX_CHARS, Chunk, chunk_document
-from footnote.config import get_client
-from footnote.loader import FOLDERS, NOTES_DIR, load_note
-from footnote.schema import Document
+from footnote.ingestion.chunker import CHUNK_OVERLAP, MAX_CHARS, Chunk, chunk_document
+from footnote.core.config import get_client
+from footnote.ingestion.loader import FOLDERS, NOTES_DIR, load_note
+from footnote.core.schema import Document
 
 load_dotenv()
 
@@ -76,10 +76,13 @@ def delete_source(client: QdrantClient, source: str) -> None:
     client.delete(COLLECTION, points_selector=FilterSelector(filter=match_source))
 
 
-def to_point(chunk: Chunk, vector: list[float], doc_hash: str) -> PointStruct:
+def chunk_id(chunk: Chunk) -> str:
     # Same source + text -> same id, so re-indexing replaces a chunk instead of duplicating it.
-    point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, chunk.source + chunk.text))
-    return PointStruct(id=point_id, vector=vector, payload=chunk.model_dump() | {"doc_hash": doc_hash})
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, chunk.source + chunk.text))
+
+
+def to_point(chunk: Chunk, vector: list[float], doc_hash: str) -> PointStruct:
+    return PointStruct(id=chunk_id(chunk), vector=vector, payload=chunk.model_dump() | {"doc_hash": doc_hash})
 
 
 def index_all(client: QdrantClient, embedder: NVIDIAEmbeddings) -> None:

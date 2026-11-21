@@ -2,8 +2,8 @@ import re
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel
 
-from footnote.loader import FOLDERS, NOTES_DIR, load_note
-from footnote.schema import Document
+from footnote.ingestion.loader import FOLDERS, NOTES_DIR, load_note
+from footnote.core.schema import Document
 
 MAX_CHARS = 1000
 CHUNK_OVERLAP = 150
